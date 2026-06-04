@@ -32,8 +32,7 @@ reset_clocks() {
             warn "Failed to reset clocks - may need manual reset"
         fi
     else
-        warn "nvflux binary not found - cannot reset clocks"
-        warn "GPU clocks may still be locked"
+        die "nvflux not installed - nothing to uninstall"
     fi
 }
 

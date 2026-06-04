@@ -205,6 +205,13 @@ pre_checks
 # Check for NVIDIA drivers first (will abort if not found)
 check_nvidia
 
+# Skip if nvflux is already installed and functional
+if [ -x "$INSTALL_BIN" ] && "$INSTALL_BIN" --version >/dev/null 2>&1; then
+    success "nvflux $("$INSTALL_BIN" --version) already installed at $INSTALL_BIN"
+    success "Re-run with --force to rebuild and reinstall"
+    exit 0
+fi
+
 # Install build dependencies
 install_deps
 

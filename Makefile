@@ -4,7 +4,7 @@ PREFIX ?= /usr/local
 BINDIR ?= $(PREFIX)/bin
 
 CC ?= gcc
-CFLAGS ?= -O2 -std=c11 -Wall -Wextra -D_POSIX_C_SOURCE=200809L
+CFLAGS ?= -O2 -std=c11 -Wall -Wextra -fstack-protector-strong -D_FORTIFY_SOURCE=2 -Wformat -Wformat-security
 
 .PHONY: all install uninstall clean
 

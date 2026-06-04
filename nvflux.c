@@ -23,6 +23,8 @@
 
 #define VERSION "1.0.0"
 #define MAX_CLOCKS 16
+#define STATE_DIR  "/var/lib/nvflux"
+#define STATE_PATH STATE_DIR "/state"
 
 /* Profile enum - PROFILE_INVALID must be -1 for error checking */
 typedef enum { PROFILE_INVALID = -1, PROFILE_AUTO, PROFILE_POWERSAVE, PROFILE_BALANCED, PROFILE_PERFORMANCE, PROFILE_ULTRA } Profile;
@@ -34,25 +36,20 @@ static char nvsmi[PATH_MAX];
  * Helper: find nvidia-smi (search common paths + PATH)
  * ─────────────────────────────────────────────────────────────────────────── */
 static int find_nvidia_smi(void) {
-    /* Search common distro paths: Debian/Ubuntu, Arch, Fedora/openSUSE, Gentoo */
     const char *paths[] = {
-        "/usr/bin/nvidia-smi",      /* Debian, Ubuntu, Arch, Gentoo */
-        "/usr/local/bin/nvidia-smi",/* Source installs */
-        "/usr/bin/nvidia-smi.bin",  /* Some distros */
+        "/usr/bin/nvidia-smi",
+        "/usr/local/bin/nvidia-smi",
+        "/usr/bin/nvidia-smi.bin",
         NULL,
     };
-    for (int i = 0; paths[i]; i++)
-        if (access(paths[i], X_OK) == 0) { strncpy(nvsmi, paths[i], sizeof(nvsmi)-1); return 0; }
-
-    /* Fallback: search PATH */
-    const char *env = getenv("PATH");
-    if (!env) return -1;
-    char tmp[PATH_MAX]; strncpy(tmp, env, sizeof(tmp)-1); tmp[sizeof(tmp)-1] = '\0';
-    for (char *seg = tmp, *end; seg; seg = end ? end + 1 : NULL) {
-        end = strchr(seg, ':'); if (end) *end = '\0';
-        if (snprintf(nvsmi, sizeof(nvsmi), "%s/nvidia-smi", seg) >= (int)sizeof(nvsmi)) continue;
-        if (access(nvsmi, X_OK) == 0) return 0;
-        if (!end) break;
+    for (int i = 0; paths[i]; i++) {
+        struct stat st;
+        if (stat(paths[i], &st) != 0) continue;
+        if (!S_ISREG(st.st_mode)) continue;
+        if (access(paths[i], X_OK) != 0) continue;
+        strncpy(nvsmi, paths[i], sizeof(nvsmi)-1);
+        nvsmi[sizeof(nvsmi)-1] = '\0';
+        return 0;
     }
     return -1;
 }
@@ -60,12 +57,19 @@ static int find_nvidia_smi(void) {
 /* ───────────────────────────────────────────────────────────────────────────
  * Helper: run nvidia-smi and capture output
  * ─────────────────────────────────────────────────────────────────────────── */
+static void close_all_fds(void) {
+    int max = (int)sysconf(_SC_OPEN_MAX);
+    if (max <= 0) max = 1024;
+    for (int i = 3; i < max; i++) close(i);
+}
+
 static int run_capture(char *const argv[], char *buf, size_t len) {
     int fd[2]; if (pipe(fd) < 0) return -1;
     pid_t pid = fork();
     if (pid < 0) { close(fd[0]); close(fd[1]); return -1; }
     if (pid == 0) {
         close(fd[0]); dup2(fd[1], STDOUT_FILENO); dup2(fd[1], STDERR_FILENO); close(fd[1]);
+        close_all_fds();
         execv(argv[0], argv); _exit(127);
     }
     close(fd[1]);
@@ -79,7 +83,12 @@ static int run_capture(char *const argv[], char *buf, size_t len) {
 static int run_silent(char *const argv[]) {
     pid_t pid = fork();
     if (pid < 0) return -1;
-    if (pid == 0) { execv(argv[0], argv); _exit(127); }
+    if (pid == 0) {
+        close_all_fds();
+        int fd = open("/dev/null", O_WRONLY);
+        if (fd >= 0) { dup2(fd, STDOUT_FILENO); dup2(fd, STDERR_FILENO); close(fd); }
+        execv(argv[0], argv); _exit(127);
+    }
     int st; waitpid(pid, &st, 0);
     return WIFEXITED(st) ? WEXITSTATUS(st) : -1;
 }
@@ -208,23 +217,20 @@ static int enable_persistence(void) {
 /* ───────────────────────────────────────────────────────────────────────────
  * State file: /var/lib/nvflux/state (system-wide, all users)
  * ─────────────────────────────────────────────────────────────────────────── */
-static void state_path(char *out, size_t len) {
-    snprintf(out, len, "/var/lib/nvflux/state");
-}
-
 static int state_write(const char *mode) {
-    char path[PATH_MAX];
-    state_path(path, sizeof(path));
-    int fd = open(path, O_WRONLY|O_CREAT|O_TRUNC, 0644);
+    /* Ensure state directory exists */
+    if (mkdir(STATE_DIR, 0755) != 0 && errno != EEXIST) return -1;
+
+    int fd = open(STATE_PATH, O_WRONLY|O_CREAT|O_TRUNC, 0644);
     if (fd < 0) return -1;
+    fchmod(fd, 0644);  /* Enforce permissions regardless of umask */
     ssize_t w = write(fd, mode, strlen(mode));
     close(fd);
     return (w > 0) ? 0 : -1;
 }
 
 static int state_read(char *buf, size_t len) {
-    char path[PATH_MAX]; state_path(path, sizeof(path));
-    int fd = open(path, O_RDONLY); if (fd < 0) return 0;
+    int fd = open(STATE_PATH, O_RDONLY); if (fd < 0) return 0;
     ssize_t r = read(fd, buf, len-1); close(fd);
     if (r <= 0) return 0;
     buf[r] = '\0';
@@ -328,8 +334,9 @@ static int levenshtein(const char *s1, const char *s2) {
     if (len1 == 0) return (int)len2;
     
     unsigned int *prev = malloc((len2 + 1) * sizeof(unsigned int));
+    if (!prev) return -1;
     unsigned int *curr = malloc((len2 + 1) * sizeof(unsigned int));
-    if (!prev || !curr) { free(prev); free(curr); return -1; }
+    if (!curr) { free(prev); return -1; }
     
     for (size_t j = 0; j <= len2; j++) prev[j] = (unsigned int)j;
     
@@ -382,6 +389,9 @@ int main(int argc, char **argv) {
 
     /* status: no root needed */
     if (strcmp(cmd, "status") == 0) {
+        if (setuid(getuid()) != 0) {
+            fprintf(stderr, "warning: failed to drop privileges\n");
+        }
         char mode[64] = {0};
         if (state_read(mode, sizeof(mode))) {
             if (mode[0] >= 'a' && mode[0] <= 'z') mode[0] += 'A' - 'a';
@@ -398,6 +408,9 @@ int main(int argc, char **argv) {
 
     /* clock/clocks: no root needed */
     if (strcmp(cmd, "clock") == 0 || strcmp(cmd, "clocks") == 0) {
+        if (setuid(getuid()) != 0) {
+            fprintf(stderr, "warning: failed to drop privileges\n");
+        }
         int mem = get_current_mem();
         int gpu = get_current_gpu();
         if (mem < 0) { fprintf(stderr, "error: failed to query memory clock\n"); return 1; }
@@ -426,6 +439,11 @@ int main(int argc, char **argv) {
     }
 
     if (apply_profile(p) != 0) return 1;
-    state_write(profile_name(p));
+    if (state_write(profile_name(p)) != 0) {
+        fprintf(stderr, "warning: failed to save profile state\n");
+    }
+    if (setuid(getuid()) != 0) {
+        fprintf(stderr, "warning: failed to drop privileges\n");
+    }
     return 0;
 }
