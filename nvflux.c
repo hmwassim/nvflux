@@ -33,9 +33,28 @@ typedef enum { PROFILE_INVALID = -1, PROFILE_AUTO, PROFILE_POWERSAVE, PROFILE_BA
 static char nvsmi[PATH_MAX];
 
 /* ───────────────────────────────────────────────────────────────────────────
- * Helper: find nvidia-smi (search common paths + PATH)
+ * Helper: find nvidia-smi (search PATH + common paths)
  * ─────────────────────────────────────────────────────────────────────────── */
 static int find_nvidia_smi(void) {
+    const char *path_env = getenv("PATH");
+    if (path_env) {
+        char *path_copy = strdup(path_env);
+        if (path_copy) {
+            char *dir, *save;
+            for (dir = strtok_r(path_copy, ":", &save); dir; dir = strtok_r(NULL, ":", &save)) {
+                char candidate[PATH_MAX];
+                snprintf(candidate, sizeof(candidate), "%s/nvidia-smi", dir);
+                struct stat st;
+                if (stat(candidate, &st) == 0 && S_ISREG(st.st_mode) && access(candidate, X_OK) == 0) {
+                    strncpy(nvsmi, candidate, sizeof(nvsmi)-1);
+                    nvsmi[sizeof(nvsmi)-1] = '\0';
+                    free(path_copy);
+                    return 0;
+                }
+            }
+            free(path_copy);
+        }
+    }
     const char *paths[] = {
         "/usr/bin/nvidia-smi",
         "/usr/local/bin/nvidia-smi",
@@ -159,10 +178,13 @@ static int lock_mem(int mhz) {
     snprintf(arg, sizeof(arg), "--lock-memory-clocks=%d,%d", mhz, mhz);
     char *argv[] = {nvsmi, arg, NULL};
     if (run_silent(argv) == 0) return 0;
-    /* Hopper+ fallback */
+    /* Hopper+ fallback — try without mode, then with --mode=1 */
     snprintf(arg, sizeof(arg), "--lock-memory-clocks-deferred=%d", mhz);
     char *argv2[] = {nvsmi, arg, NULL};
-    return run_silent(argv2);
+    if (run_silent(argv2) == 0) return 0;
+    char mode_arg[] = "--mode=1";
+    char *argv3[] = {nvsmi, mode_arg, arg, NULL};
+    return run_silent(argv3);
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
@@ -181,8 +203,8 @@ static int lock_gpu(int mhz) {
  * Reset GPU core clocks
  * ─────────────────────────────────────────────────────────────────────────── */
 static int reset_gpu(void) {
-    const char *opts[] = {"--reset-gpu-clocks", "-rgc", NULL};
-    for (const char **o = opts; *o; o++) { char *argv[] = {nvsmi, (char *)*o, NULL}; if (run_silent(argv) == 0) return 0; }
+    char *opts[] = {"--reset-gpu-clocks", "-rgc", NULL};
+    for (char **o = opts; *o; o++) { char *argv[] = {nvsmi, *o, NULL}; if (run_silent(argv) == 0) return 0; }
     return -1;
 }
 
@@ -201,8 +223,8 @@ static int get_gpu_clocks(int *clocks, int max) {
  * Reset memory clocks
  * ─────────────────────────────────────────────────────────────────────────── */
 static int reset_mem(void) {
-    const char *opts[] = {"--reset-memory-clocks", "-rmc", "--reset-memory-clocks-deferred", "-rmcd", NULL};
-    for (const char **o = opts; *o; o++) { char *argv[] = {nvsmi, (char *)*o, NULL}; if (run_silent(argv) == 0) return 0; }
+    char *opts[] = {"--reset-memory-clocks", "-rmc", "--reset-memory-clocks-deferred", "-rmcd", NULL};
+    for (char **o = opts; *o; o++) { char *argv[] = {nvsmi, *o, NULL}; if (run_silent(argv) == 0) return 0; }
     return -1;
 }
 
@@ -210,8 +232,12 @@ static int reset_mem(void) {
  * Enable persistence mode
  * ─────────────────────────────────────────────────────────────────────────── */
 static int enable_persistence(void) {
+    static int done = 0;
+    if (done) return 0;
     char *argv[] = {nvsmi, "-pm", "1", NULL};
-    return run_silent(argv);
+    int ret = run_silent(argv);
+    if (ret == 0) done = 1;
+    return ret;
 }
 
 /* ───────────────────────────────────────────────────────────────────────────

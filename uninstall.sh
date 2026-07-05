@@ -32,7 +32,7 @@ reset_clocks() {
             warn "Failed to reset clocks - may need manual reset"
         fi
     else
-        die "nvflux not installed - nothing to uninstall"
+        warn "Binary not found — cleaning up leftovers"
     fi
 }
 
@@ -41,7 +41,7 @@ reset_clocks() {
 # ──────────────────────────────────────────────────────────────────────────────
 
 # Reset clocks first (before removing binary)
-reset_clocks
+reset_clocks || true
 
 info "Removing nvflux binary..."
 if rm -f "$NVFLUX_BIN"; then

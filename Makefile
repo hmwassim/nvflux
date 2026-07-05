@@ -19,7 +19,8 @@ nvflux: nvflux.c
 install: nvflux
 	install -Dm4755 nvflux $(DESTDIR)$(BINDIR)/nvflux
 	install -dm755 $(DESTDIR)$(STATEDIR)
-	printf '[Desktop Entry]\nType=Application\nName=nvflux\nComment=Restore NVIDIA GPU clock profile\nExec=/usr/local/bin/nvflux --restore\nTerminal=false\nCategories=Utility;\nHidden=false\nX-GNOME-Autostart-enabled=true\nX-KDE-autostart-after=panel\n' > $(DESTDIR)$(AUTOSTART)
+	install -dm755 $(dir $(DESTDIR)$(AUTOSTART))
+	printf '[Desktop Entry]\nType=Application\nName=nvflux\nComment=Restore NVIDIA GPU clock profile\nExec=$(BINDIR)/nvflux --restore\nTerminal=false\nCategories=Utility;\nHidden=false\nX-GNOME-Autostart-enabled=true\nX-KDE-autostart-after=panel\n' > $(DESTDIR)$(AUTOSTART)
 	chmod 644 $(DESTDIR)$(AUTOSTART)
 	@echo "nvflux installed to $(DESTDIR)$(BINDIR)/nvflux"
 

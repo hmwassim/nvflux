@@ -7,6 +7,8 @@ INSTALL_BIN="/usr/local/bin/nvflux"
 STATE_DIR="/var/lib/nvflux"
 AUTOSTART_FILE="/etc/xdg/autostart/nvflux-restore.desktop"
 BACKUP_BIN="/usr/local/bin/nvflux.bak"
+FORCE=0
+if [ "${1:-}" = "--force" ]; then FORCE=1; fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -205,8 +207,8 @@ pre_checks
 # Check for NVIDIA drivers first (will abort if not found)
 check_nvidia
 
-# Skip if nvflux is already installed and functional
-if [ -x "$INSTALL_BIN" ] && "$INSTALL_BIN" --version >/dev/null 2>&1; then
+# Skip if nvflux is already installed and functional (unless --force)
+if [ "$FORCE" -eq 0 ] && [ -x "$INSTALL_BIN" ] && "$INSTALL_BIN" --version >/dev/null 2>&1; then
     success "nvflux $("$INSTALL_BIN" --version) already installed at $INSTALL_BIN"
     success "Re-run with --force to rebuild and reinstall"
     exit 0
@@ -242,33 +244,6 @@ fi
 info "Cleaning up build artifacts..."
 make -C "$SCRIPT_DIR" clean >/dev/null 2>&1 || true
 
-info "Creating state directory..."
-if ! mkdir -p "$STATE_DIR"; then
-    die "Failed to create state directory"
-fi
-chmod 755 "$STATE_DIR"
-success "State directory created at $STATE_DIR"
-
-info "Installing autostart (system-wide)..."
-AUTOSTART_DIR="/etc/xdg/autostart"
-if ! mkdir -p "$AUTOSTART_DIR"; then
-    die "Failed to create autostart directory"
-fi
-cat > "$AUTOSTART_FILE" << 'EOF'
-[Desktop Entry]
-Type=Application
-Name=nvflux
-Comment=Restore NVIDIA GPU clock profile
-Exec=/usr/local/bin/nvflux --restore
-Terminal=false
-Categories=Utility;
-Hidden=false
-X-GNOME-Autostart-enabled=true
-X-KDE-autostart-after=panel
-EOF
-chmod 644 "$AUTOSTART_FILE"
-success "Autostart installed at $AUTOSTART_FILE"
-
 # ──────────────────────────────────────────────────────────────────────────────
 # Verify installation
 # ──────────────────────────────────────────────────────────────────────────────
@@ -301,7 +276,7 @@ verify_installation() {
 verify_installation
 
 echo ""
-success "nvflux $(nvflux --version) installed successfully!"
+success "nvflux $("$INSTALL_BIN" --version) installed successfully!"
 echo ""
 echo "Usage:"
 echo "  nvflux powersave     # Lock memory (audio fix)"
