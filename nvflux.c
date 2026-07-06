@@ -174,17 +174,30 @@ static int get_current_gpu(void)
  * Lock memory clock
  * ─────────────────────────────────────────────────────────────────────────── */
 static int lock_mem(int mhz) {
-    char arg[64];
+    char arg[64], mode_arg[] = "--mode=1";
+    int cur;
+
+    /* Method 1: standard lock — verify the clock actually changed */
     snprintf(arg, sizeof(arg), "--lock-memory-clocks=%d,%d", mhz, mhz);
-    char *argv[] = {nvsmi, arg, NULL};
-    if (run_silent(argv) == 0) return 0;
-    /* Hopper+ fallback — try without mode, then with --mode=1 */
+    char *a1[] = {nvsmi, arg, NULL};
+    run_silent(a1);
+    cur = get_current_mem();
+    if (cur >= 0 && abs(cur - mhz) <= 10) return 0;
+
+    /* Method 2: deferred lock (Hopper+ / mobile fallback) */
     snprintf(arg, sizeof(arg), "--lock-memory-clocks-deferred=%d", mhz);
-    char *argv2[] = {nvsmi, arg, NULL};
-    if (run_silent(argv2) == 0) return 0;
-    char mode_arg[] = "--mode=1";
-    char *argv3[] = {nvsmi, mode_arg, arg, NULL};
-    return run_silent(argv3);
+    char *a2[] = {nvsmi, arg, NULL};
+    run_silent(a2);
+    cur = get_current_mem();
+    if (cur >= 0 && abs(cur - mhz) <= 10) return 0;
+
+    /* Method 3: deferred lock with --mode=1 */
+    char *a3[] = {nvsmi, mode_arg, arg, NULL};
+    run_silent(a3);
+    cur = get_current_mem();
+    if (cur >= 0 && abs(cur - mhz) <= 10) return 0;
+
+    return -1;
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
