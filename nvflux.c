@@ -171,33 +171,34 @@ static int get_current_gpu(void)
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
+ * Query memory clock locking style (not supported, deferred, runtime)
+ * ─────────────────────────────────────────────────────────────────────────── */
+static const char *get_lock_mem_style(void) {
+    char buf[1024];
+    char *argv[] = {nvsmi, "--lock-memory-clocks-info", NULL};
+    if (run_capture(argv, buf, sizeof(buf)) != 0) return NULL;
+    if (strstr(buf, "Not Supported")) return "not supported";
+    if (strstr(buf, "Runtime Modifiable")) return "runtime modifiable";
+    if (strstr(buf, "Deferred")) return "deferred";
+    return NULL;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
  * Lock memory clock
  * ─────────────────────────────────────────────────────────────────────────── */
 static int lock_mem(int mhz) {
     char arg[64], mode_arg[] = "--mode=1";
-    int cur;
 
-    /* Method 1: standard lock — verify the clock actually changed */
     snprintf(arg, sizeof(arg), "--lock-memory-clocks=%d,%d", mhz, mhz);
     char *a1[] = {nvsmi, arg, NULL};
-    run_silent(a1);
-    cur = get_current_mem();
-    if (cur >= 0 && abs(cur - mhz) <= 10) return 0;
+    if (run_silent(a1) == 0) return 0;
 
-    /* Method 2: deferred lock (Hopper+ / mobile fallback) */
     snprintf(arg, sizeof(arg), "--lock-memory-clocks-deferred=%d", mhz);
     char *a2[] = {nvsmi, arg, NULL};
-    run_silent(a2);
-    cur = get_current_mem();
-    if (cur >= 0 && abs(cur - mhz) <= 10) return 0;
+    if (run_silent(a2) == 0) return 0;
 
-    /* Method 3: deferred lock with --mode=1 */
     char *a3[] = {nvsmi, mode_arg, arg, NULL};
-    run_silent(a3);
-    cur = get_current_mem();
-    if (cur >= 0 && abs(cur - mhz) <= 10) return 0;
-
-    return -1;
+    return run_silent(a3);
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
@@ -322,7 +323,12 @@ static int apply_profile(Profile p) {
     else if (p == PROFILE_BALANCED) mem_target = mem_clocks[n/2];                    /* middle */
     else mem_target = mem_clocks[n-1];                                               /* lowest */
 
-    if (lock_mem(mem_target) != 0) { fprintf(stderr, "error: failed to lock memory to %d MHz\n", mem_target); return -1; }
+    if (lock_mem(mem_target) != 0) {
+        const char *style = get_lock_mem_style();
+        fprintf(stderr, "error: failed to lock memory to %d MHz\n", mem_target);
+        if (style) fprintf(stderr, "  GPU lock style: %s\n", style);
+        return -1;
+    }
 
     /* Ultra mode: lock GPU core clock to max */
     if (p == PROFILE_ULTRA) {
