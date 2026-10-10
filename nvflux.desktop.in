@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=nvflux
+Comment=Re-apply the saved NVIDIA memory clock profile
+Exec=@BINDIR@/nvflux restore
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

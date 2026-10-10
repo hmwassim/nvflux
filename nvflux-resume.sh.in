@@ -1,0 +1,7 @@
+#!/bin/sh
+# Re-apply the saved nvflux profile after resume, since the driver can drop
+# memory clock locks across suspend. Installed as an elogind system-sleep hook
+# (called with "pre" before sleeping and "post" after) and as a zzz resume
+# hook (called only after resuming).
+[ "${1:-}" = pre ] && exit 0
+exec @BINDIR@/nvflux restore

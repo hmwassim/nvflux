@@ -1,0 +1,12 @@
+[Unit]
+Description=Re-apply the saved nvflux memory clock profile after resume
+# The driver can drop memory clock locks across suspend. Run once the system
+# and the NVIDIA driver (nvidia-resume.service, if present) are back up.
+After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target nvidia-resume.service
+
+[Service]
+Type=oneshot
+ExecStart=@BINDIR@/nvflux restore
+
+[Install]
+WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
