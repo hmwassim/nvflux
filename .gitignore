@@ -1,0 +1,6 @@
+# Ignore everything; allow only the files listed.
+*
+!*/
+
+!.gitignore
+!LICENSE
