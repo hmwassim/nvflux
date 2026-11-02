@@ -7,3 +7,8 @@
 !Makefile
 !src/*.c
 !src/*.h
+!tests/*.c
+!tests/*.sh
+!tests/unit/*.c
+!tests/unit/*.h
+!tests/fuzz/*.c
