@@ -4,3 +4,6 @@
 
 !.gitignore
 !LICENSE
+!Makefile
+!src/*.c
+!src/*.h
