@@ -1,0 +1,12 @@
+[Unit]
+Description=Unlock nvflux GPU clocks before sleep
+# The GPU goes through sleep in the driver's default state, as if nvflux
+# weren't installed. The saved mode is not changed.
+Before=sleep.target nvidia-suspend.service nvidia-hibernate.service nvidia-suspend-then-hibernate.service
+
+[Service]
+Type=oneshot
+ExecStart=@BINDIR@/nvflux off --temporary
+
+[Install]
+WantedBy=sleep.target

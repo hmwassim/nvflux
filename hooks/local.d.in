@@ -1,0 +1,4 @@
+#!/bin/sh
+# Apply the saved nvflux GPU clock mode at boot. Runs from runit's stage 2
+# (Artix) or OpenRC's "local" service, which start /etc/local.d/*.start.
+@BINDIR@/nvflux reload --wait 15 >/dev/null 2>&1 &

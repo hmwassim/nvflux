@@ -1,0 +1,3 @@
+# Apply the saved nvflux GPU clock mode at boot.
+type = scripted
+command = @BINDIR@/nvflux reload --wait 15

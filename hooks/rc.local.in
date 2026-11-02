@@ -1,0 +1,3 @@
+# nvflux begin
+@BINDIR@/nvflux reload --wait 15 &
+# nvflux end

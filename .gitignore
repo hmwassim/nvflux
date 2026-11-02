@@ -12,3 +12,4 @@
 !tests/unit/*.c
 !tests/unit/*.h
 !tests/fuzz/*.c
+!hooks/*.in

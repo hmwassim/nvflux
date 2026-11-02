@@ -1,0 +1,3 @@
+#!/bin/sh
+# zzz hook: unlock nvflux GPU clocks before sleep (the saved mode is kept).
+exec @BINDIR@/nvflux off --temporary

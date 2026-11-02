@@ -1,0 +1,14 @@
+#!/sbin/openrc-run
+# Apply the saved nvflux GPU clock mode at boot.
+description="Apply the saved nvflux GPU clock mode"
+
+depend() {
+	need localmount
+	after modules udev
+}
+
+start() {
+	ebegin "Applying nvflux GPU clock mode"
+	@BINDIR@/nvflux reload --wait 15
+	eend $?
+}

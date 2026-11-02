@@ -1,0 +1,7 @@
+#!/bin/sh
+# elogind system-sleep hook: unlock nvflux GPU clocks before sleep and apply
+# the saved mode again after. $1 is "pre" or "post".
+case "$1" in
+pre) exec @BINDIR@/nvflux off --temporary ;;
+post) exec @BINDIR@/nvflux reload --wait 15 ;;
+esac

@@ -1,0 +1,10 @@
+[Unit]
+Description=Apply the saved nvflux GPU clock mode after sleep
+After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target nvidia-resume.service
+
+[Service]
+Type=oneshot
+ExecStart=@BINDIR@/nvflux reload --wait 15
+
+[Install]
+WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target

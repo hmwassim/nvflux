@@ -1,0 +1,8 @@
+#!/bin/sh
+# pm-utils hook: unlock nvflux GPU clocks before sleep and apply the saved
+# mode again after.
+case "$1" in
+suspend|hibernate) @BINDIR@/nvflux off --temporary ;;
+resume|thaw) @BINDIR@/nvflux reload --wait 15 ;;
+esac
+exit 0

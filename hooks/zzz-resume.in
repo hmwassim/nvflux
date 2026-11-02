@@ -1,0 +1,3 @@
+#!/bin/sh
+# zzz hook: apply the saved nvflux GPU clock mode after sleep.
+exec @BINDIR@/nvflux reload --wait 15
