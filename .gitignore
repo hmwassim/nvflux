@@ -15,3 +15,7 @@
 !hooks/*.in
 !man/*.1
 !completions/*
+!install.sh
+!uninstall.sh
+!tests/hooks/*.sh
+!tests/containers/*.sh
