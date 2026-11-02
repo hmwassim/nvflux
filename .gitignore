@@ -13,3 +13,5 @@
 !tests/unit/*.h
 !tests/fuzz/*.c
 !hooks/*.in
+!man/*.1
+!completions/*

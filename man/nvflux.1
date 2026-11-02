@@ -1,0 +1,164 @@
+.TH NVFLUX 1 2026-10-23 "nvflux 1.0.0" "User Commands"
+.SH NAME
+nvflux \- lock NVIDIA GPU memory and graphics clocks, safely
+.SH SYNOPSIS
+.B nvflux
+.RI [ command ]
+.RI [ options ]
+.SH DESCRIPTION
+The NVIDIA driver keeps raising and lowering the GPU clocks.
+Each change of the memory clock can cause HDMI/DisplayPort audio crackle,
+screen flicker or a short stutter; a graphics clock that ramps up slowly makes
+the desktop lag; a clock that boosts higher than needed makes noise and heat.
+.B nvflux
+holds the clocks where they need to be.
+.PP
+It only uses NVIDIA's own clock-lock functions and only clock values the
+driver reports as supported.
+The driver's power limit and thermal protection stay in force.
+It never overclocks, changes voltages, power limits or fans.
+.PP
+The chosen mode is saved and applied again at boot and after sleep.
+Before the system sleeps, the locks are released, so the GPU goes through
+sleep in the driver's default state.
+.SH MODES
+.TP
+.B balanced
+Holds memory at the lowest clock that doesn't limit the graphics clock, and
+keeps the graphics clock above 45% of its maximum.
+Fixes audio crackle, flicker and desktop lag.
+The usual choice.
+.TP
+.B powersave
+Holds memory like
+.BR balanced ,
+and caps the graphics clock at the card's base clock.
+Cooler, quieter, less power.
+.TP
+.B max
+Holds memory at its highest clock; graphics boosts freely.
+For games and compute.
+Uses more power when idle.
+.TP
+.B off
+The driver controls the clocks again.
+.PP
+GPUs that can't lock their memory clock (before RTX 30) get the graphics part
+of each mode.
+GPUs before GTX 16/RTX 20 can't lock clocks at all.
+.SH COMMANDS
+.TP
+.B status
+Mode, current clocks, what nvflux locks them at, power and temperature.
+The default command.
+.TP
+.B info
+The clocks each GPU supports, and what each mode would set.
+.TP
+.B doctor
+Checks the driver, permissions, hooks and the applied mode.
+Prints one line per check (ok, warn or FAIL) with the fix.
+.TP
+.B reload
+Applies the saved mode again.
+Run by the boot and sleep hooks.
+.TP
+.BI "lock memory " MHz
+Holds the memory clock at the supported clock nearest to
+.IR MHz .
+.TP
+.BI "lock graphics " MHz | min - max
+Holds the graphics clock at one clock or within a range.
+.IP
+Values snap to the nearest supported clock.
+A memory clock that limits the graphics clock, or a graphics cap below 45% of
+the maximum, needs
+.BR \-\-force .
+Locks are saved like a mode.
+.TP
+.BR help ", " version
+.SH OPTIONS
+.TP
+.B \-\-temporary
+Applies a mode or lock without saving it.
+The saved mode comes back at the next reboot, sleep or
+.BR reload .
+.TP
+.BI \-\-gpu " N"
+Only GPU
+.I N
+(numbered as in
+.BR status ).
+Saved by the GPU's UUID.
+.TP
+.B \-\-force
+With
+.BR lock :
+allow a lock that slows the GPU down.
+.TP
+.B \-\-json
+With
+.B status
+and
+.BR info :
+machine-readable output.
+Fields are only ever added, never renamed or removed.
+.SH PERMISSIONS
+nvflux is installed setuid root, mode 4750, group
+.BR nvflux .
+Members of the group can change clocks without sudo; others use
+.BR sudo .
+Commands that only read give root up before doing anything.
+.SH FILES
+.TP
+.I /usr/local/bin/nvflux
+The program.
+.TP
+.I /var/lib/nvflux/state
+The saved mode.
+.TP
+.I /var/lib/nvflux/installed
+What the installer installed; used by
+.B doctor
+and
+.BR uninstall.sh .
+.TP
+.I /run/nvflux/current
+A
+.B \-\-temporary
+mode; cleared at boot.
+.SH KERNEL COMMAND LINE
+.TP
+.B nvflux=off
+.B reload
+does nothing.
+Use it to boot without nvflux's locks.
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B 1
+Failed, or a value was refused.
+.TP
+.B 2
+Usage error.
+.TP
+.B 3
+No permission.
+.TP
+.B 4
+Not supported by this GPU or driver.
+.TP
+.B 5
+Applied to some GPUs, not all.
+.SH EXAMPLES
+.nf
+nvflux balanced
+nvflux max \-\-temporary
+nvflux lock memory 5001
+nvflux lock graphics 900\-1800
+nvflux status \-\-json
+.fi
+.SH SEE ALSO
+.BR nvidia\-smi (1)

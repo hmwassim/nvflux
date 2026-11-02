@@ -1,0 +1,27 @@
+#compdef nvflux
+# zsh completion for nvflux
+_nvflux() {
+    local -a commands
+    commands=(
+        'balanced:steady memory, graphics floor'
+        'powersave:steady memory, graphics capped'
+        'max:memory at full speed'
+        'off:driver controls the clocks'
+        'status:mode and clocks'
+        'info:supported clocks'
+        'doctor:check the setup'
+        'reload:apply the saved mode again'
+        'lock:lock a clock'
+        'help:usage'
+        'version:version'
+    )
+    _arguments \
+        '--temporary[apply without saving]' \
+        '--gpu[one GPU only]:GPU number' \
+        '--force[allow a lock that slows the GPU]' \
+        '--json[machine-readable output]' \
+        '1:command:_describe command commands' \
+        '2:clock:(memory graphics)' \
+        '3:MHz'
+}
+_nvflux "$@"
