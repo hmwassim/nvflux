@@ -19,3 +19,4 @@
 !uninstall.sh
 !tests/hooks/*.sh
 !tests/containers/*.sh
+!*.md
